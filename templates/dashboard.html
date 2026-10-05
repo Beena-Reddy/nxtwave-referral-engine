@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Growth dashboard · {{ title }}{% endblock %}
+{% block body %}
+<h1>Growth dashboard</h1>
+{% if s.simulated %}
+<div class="banner"><strong>{{ s.simulated }} of {{ s.total }} registrations are simulated</strong> by <code>seed_simulation.py</code> to show how the 7-day plan would look. Run <code>python seed_simulation.py --clear</code> to start empty.</div>
+{% endif %}
+
+<div class="kpis">
+  <div class="kpi"><b>{{ s.total }}</b><span>registrations of {{ s.target }}</span></div>
+  <div class="kpi"><b>{{ s.conversion }}%</b><span>visit → registration</span></div>
+  <div class="kpi"><b>{{ s.k_factor }}</b><span>K-factor (new users per user)</span></div>
+  <div class="kpi"><b>{{ s.referred_pct }}%</b><span>came through referrals</span></div>
+  <div class="kpi"><b>{{ s.share_rate }}%</b><span>of registrants referred ≥1</span></div>
+  <div class="kpi {{ 'alert' if s.final_year_pct < 70 }}"><b>{{ s.final_year_pct }}%</b><span>are final-year (2027)</span></div>
+  <div class="kpi"><b>{{ s.colleges }}</b><span>colleges</span></div>
+  {% if s.waitlisted %}<div class="kpi alert"><b>{{ s.waitlisted }}</b><span>on the waitlist (seat cap {{ s.seat_cap }})</span></div>{% endif %}
+</div>
+
+<div class="panel">
+  <h2>Funnel</h2>
+  <p class="hint">Where students drop off between seeing the page and bringing a friend.</p>
+  {% set steps = [("Visited the page", s.visits), ("Registered", s.total), ("Brought at least 1 friend", s.sharers)] %}
+  <div class="funnel">
+  {% for label, n in steps %}
+    {% set w = (100 * n / s.visits) if s.visits else 0 %}
+    <div class="funnel-row">
+      <span class="funnel-label">{{ label }}</span>
+      <div class="funnel-track"><div class="funnel-bar" style="width: {{ [w, 100]|min }}%"></div></div>
+      <span class="funnel-n">{{ n }}{% if not loop.first and loop.previtem[1] %} <small>{{ (100 * n / loop.previtem[1])|round(1) }}% of previous</small>{% endif %}</span>
+    </div>
+  {% endfor %}
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Pacing against the {{ s.target }} plan</h2>
+  <div class="chart-box"><canvas id="pace"></canvas></div>
+</div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2>Channels</h2>
+    <div class="scroll-x"><table>
+      <tr><th>Channel</th><th class="num">Visits</th><th class="num">Regs</th><th class="num">Conv.</th></tr>
+      {% for c in s.by_source %}
+      <tr><td>{{ c.label }}</td><td class="num">{{ c.visits }}</td><td class="num">{{ c.regs }}</td><td class="num">{{ c.cvr ~ '%' if c.cvr is not none else '–' }}</td></tr>
+      {% endfor %}
+    </table></div>
+  </div>
+  <div class="panel">
+    <h2>Top colleges</h2>
+    <div class="chart-box"><canvas id="colleges"></canvas></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>When students register (hour of day)</h2>
+  <p class="hint">Use this to time WhatsApp reminders and ambassador pushes.</p>
+  <div class="chart-box" style="height:220px"><canvas id="hours"></canvas></div>
+</div>
+
+<div class="panel">
+  <h2>What the numbers say</h2>
+  <div id="insights"></div>
+  <div class="actions">
+    <a class="btn ghost" href="/export.csv?key={{ key }}">Download registrations (CSV)</a>
+    <a class="btn ghost" href="/api/stats?key={{ key }}">Raw stats (JSON)</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='chart.umd.min.js') }}"></script>
+<script>
+const S = {{ s | tojson }};
+const ink='#13294B', soft='#5B6B85', marker='#FFE14D', red='#D62839', grid='#DCE5F0';
+// plain-language insights an intern would act on
+const out=[], days=S.daily.filter(d=>d.regs>0), last=days[days.length-1];
+if(last){
+  const gap=last.cumulative-last.target_cum;
+  out.push(gap>=0?`On track: ${gap} ahead of plan after ${last.day}.`
+                 :`Behind plan by ${-gap} after ${last.day}. Needed per remaining day: ${Math.ceil((S.target-last.cumulative)/Math.max(1,7-days.length))}.`);
+}
+const best=[...S.by_source].filter(c=>c.cvr!==null).sort((a,b)=>b.cvr-a.cvr)[0];
+if(best) out.push(`Best-converting channel: ${best.label} (${best.cvr}%). Shift ambassador effort and reminders here.`);
+out.push(S.k_factor>=0.3?`Referral loop is working (K = ${S.k_factor}): every 10 students bring ${Math.round(S.k_factor*10)} more.`
+                        :`Referral loop is weak (K = ${S.k_factor}). Push the 3-friend certificate tier in the welcome message.`);
+if(S.final_year_pct<70) out.push(`Only ${S.final_year_pct}% are final-year. Tighten targeting to 2027-batch groups.`);
+const peak=S.hours.indexOf(Math.max(...S.hours));
+out.push(`Peak registration hour: ${peak}:00–${peak+1}:00. Schedule the next WhatsApp push 30 minutes before it.`);
+document.getElementById('insights').innerHTML=out.map(t=>`<p class="insight">${t}</p>`).join('');
+
+if(window.Chart){
+Chart.defaults.font.family='"Atkinson Hyperlegible", system-ui, sans-serif';
+Chart.defaults.color=soft;
+
+new Chart(document.getElementById('pace'),{
+  data:{labels:S.daily.map(d=>d.day+' · '+d.date),datasets:[
+    {type:'bar',label:'Registrations that day',data:S.daily.map(d=>d.regs),backgroundColor:marker,borderColor:ink,borderWidth:1.5,yAxisID:'y1'},
+    {type:'line',label:'Actual cumulative',data:S.daily.map(d=>d.cumulative),borderColor:ink,backgroundColor:ink,borderWidth:3,tension:.2},
+    {type:'line',label:'Plan',data:S.daily.map(d=>d.target_cum),borderColor:red,borderDash:[6,5],pointRadius:0,borderWidth:2}
+  ]},
+  options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    scales:{y:{beginAtZero:true,grid:{color:grid},title:{display:true,text:'Cumulative'}},
+            y1:{beginAtZero:true,position:'right',grid:{display:false},title:{display:true,text:'Per day'}}}}
+});
+
+new Chart(document.getElementById('colleges'),{type:'bar',
+  data:{labels:S.top_colleges.map(c=>c.college.length>26?c.college.slice(0,25)+'…':c.college),
+        datasets:[{label:'Students',data:S.top_colleges.map(c=>c.regs),backgroundColor:ink}]},
+  options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:grid}},y:{grid:{display:false}}}}
+});
+
+new Chart(document.getElementById('hours'),{type:'bar',
+  data:{labels:[...Array(24).keys()].map(h=>h+':00'),datasets:[{label:'Registrations',data:S.hours,backgroundColor:marker,borderColor:ink,borderWidth:1}]},
+  options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:grid}},x:{grid:{display:false}}}}
+});
+
+}
+</script>
+{% endblock %}

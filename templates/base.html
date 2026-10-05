@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ title }}{% endblock %}</title>
+<meta name="description" content="Free 60-minute live workshop for final-year engineering students. Build and deploy your first AI project.">
+<meta name="theme-color" content="#13294B">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+<!-- link preview when the invite is shared on WhatsApp / LinkedIn -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ title }} · Free live workshop">
+<meta property="og:description" content="For final-year engineering students. {{ date }}. Leave with a deployed AI project and a GitHub link.">
+<meta property="og:image" content="{{ site_url }}{{ url_for('static', filename='og.png') }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <a href="/">NxtWave · AI Workshop</a>
+    <nav><a href="/leaderboard">Leaderboard</a></nav>
+  </header>
+  {% block body %}{% endblock %}
+  <footer>Prototype built for the NxtWave Growth Intern challenge. Not an official NxtWave page.</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1800);}
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

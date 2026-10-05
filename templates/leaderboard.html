@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard · {{ title }}{% endblock %}
+{% block body %}
+<h1>Who's bringing their batch.</h1>
+<p class="lede">{{ total }} students from {{ colleges_n }} colleges registered so far. The top 3 referrers when registrations close win {{ prizes|join(', ') }}.</p>
+<div class="grid2">
+  <div class="sheet">
+    <h2>Top students</h2>
+    {% if people %}
+    <div class="scroll-x"><table>
+      <tr><th>#</th><th>Name</th><th>College</th><th class="num">Friends</th></tr>
+      {% for p in people %}
+      <tr class="{{ 'podium' if loop.index <= 3 }}"><td>{{ loop.index }}</td>
+        <td>{{ p['name'] }}{% if loop.index <= 3 %}<span class="prize">{{ prizes[loop.index0] }}</span>{% endif %}</td>
+        <td>{{ p['college'] }}</td><td class="num">{{ p['refs'] }}</td></tr>
+      {% endfor %}
+    </table></div>
+    {% else %}<p>No referrals yet. <a href="/">Register</a> and share your link to be first here.</p>{% endif %}
+  </div>
+  <div class="sheet">
+    <h2>Top colleges</h2>
+    {% if colleges %}
+    <div class="scroll-x"><table>
+      <tr><th>#</th><th>College</th><th class="num">Students</th></tr>
+      {% for c in colleges %}
+      <tr><td>{{ loop.index }}</td><td>{{ c['college'] }}</td><td class="num">{{ c['regs'] }}</td></tr>
+      {% endfor %}
+    </table></div>
+    {% else %}<p>No colleges yet.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

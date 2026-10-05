@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block body %}
+<section class="hero">
+  <div>
+    <h1>Build your first AI project in 60 minutes.</h1>
+    <p class="lede">A free live workshop for final-year engineering students. You code along, deploy it, and leave with a GitHub link you can put on your resume before placement interviews.</p>
+    <p class="date">{{ date }} · Online · Free</p>
+
+    {% set pct = (100 * total / target) if target else 0 %}
+    <div class="seats">
+      <div class="seats-bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ target }}" aria-valuenow="{{ total }}" aria-label="Live seats taken">
+        <div class="seats-fill" style="width: {{ [pct, 100]|min }}%"></div>
+      </div>
+      {% if full %}
+      <p><strong>All {{ "{:,}".format(target) }} live seats are taken.</strong> Join the waitlist: seats open up when people drop out, and everyone gets the recording.</p>
+      {% else %}
+      <p><strong>{{ "{:,}".format(total) }} of {{ "{:,}".format(target) }} live seats taken</strong> by students from {{ colleges }} colleges</p>
+      {% endif %}
+    </div>
+
+    <ul class="outcomes">
+      <li>A working AI app (resume screener / study-notes bot) built live with you</li>
+      <li>Deployed online with a public link and a GitHub repo</li>
+      <li>The exact prompts and code, so you can extend it into your final-year project</li>
+      <li>How to talk about the project in a placement interview</li>
+    </ul>
+  </div>
+
+  <form class="sheet" method="post" action="/register" novalidate>
+    {% if referrer %}
+      <div class="invite">{{ referrer['name'] }} from {{ referrer['college'] }} invited you.</div>
+    {% endif %}
+    <h2>{{ "Join the waitlist" if full else "Reserve your seat" }}</h2>
+    <input type="hidden" name="ref" value="{{ ref }}">
+
+    <label for="name">Full name</label>
+    <input id="name" name="name" autocomplete="name" value="{{ form.get('name','') }}" required>
+    {% if errors.name %}<div class="err">{{ errors.name }}</div>{% endif %}
+
+    <div class="row">
+      <div>
+        <label for="phone">WhatsApp number</label>
+        <input id="phone" name="phone" inputmode="numeric" autocomplete="tel" placeholder="98xxxxxxxx" value="{{ form.get('phone','') }}" required>
+        {% if errors.phone %}<div class="err">{{ errors.phone }}</div>{% endif %}
+      </div>
+      <div>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" value="{{ form.get('email','') }}" required>
+        {% if errors.email %}<div class="err">{{ errors.email }}</div>{% endif %}
+      </div>
+    </div>
+
+    <label for="college">College</label>
+    <input id="college" name="college" value="{{ form.get('college','') }}" required>
+    {% if errors.college %}<div class="err">{{ errors.college }}</div>{% endif %}
+
+    <div class="row">
+      <div>
+        <label for="branch">Branch</label>
+        <select id="branch" name="branch">
+          {% for b in ['CSE','AI/ML / DS','IT','ECE','EEE','Mechanical','Civil','Other'] %}
+          <option {% if form.get('branch')==b %}selected{% endif %}>{{ b }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="grad_year">Graduating in</label>
+        <select id="grad_year" name="grad_year">
+          <option value="2027" {% if form.get('grad_year','2027')=='2027' %}selected{% endif %}>2027 (final year)</option>
+          <option value="2026" {% if form.get('grad_year')=='2026' %}selected{% endif %}>2026</option>
+          <option value="2028" {% if form.get('grad_year')=='2028' %}selected{% endif %}>2028</option>
+        </select>
+        {% if errors.grad_year %}<div class="err">{{ errors.grad_year }}</div>{% endif %}
+      </div>
+    </div>
+
+    <label for="city">City</label>
+    <input id="city" name="city" value="{{ form.get('city','') }}">
+
+    {% if not ref %}
+    <label for="source">Where did you hear about this?</label>
+    <select id="source" name="source">
+      {% for k, v in sources.items() if k != 'referral' %}
+      <option value="{{ k }}" {% if (form.get('source') or source)==k %}selected{% endif %}>{{ v }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+
+    <button class="btn block" type="submit">{{ "Join the waitlist" if full else "Reserve my seat" }}</button>
+    <p class="hint">You'll get your personal invite link right after registering.</p>
+  </form>
+</section>
+{% endblock %}

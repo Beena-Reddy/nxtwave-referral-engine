@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block body %}
+<section>
+  <h1>{% if again %}You're already registered, {{ me['name'] }}.{% elif me['waitlist'] %}You're on the waitlist, {{ me['name'] }}.{% else %}Seat reserved, {{ me['name'] }}.{% endif %}</h1>
+  <p class="lede">{{ date }}. Save this page: your invite link and rewards live here. Bring friends: every registration through your link moves you up the reward ladder.</p>
+  <div class="actions">
+    <a class="btn" href="{{ cal_url }}" target="_blank" rel="noopener">Add to Google Calendar</a>
+  </div>
+</section>
+
+<div class="grid2">
+  <div class="sheet">
+    <h2>Your invite link</h2>
+    <div class="linkbox">
+      <input id="link" value="{{ link }}" readonly aria-label="Your invite link">
+      <button class="btn ghost" type="button" onclick="copyText('link')">Copy</button>
+    </div>
+    <div class="actions">
+      <a class="btn wa" href="{{ wa_url }}" target="_blank" rel="noopener">Share on WhatsApp</a>
+    </div>
+
+    <h3 style="margin-top:26px">Write a message for a specific group</h3>
+    <div class="row">
+      <div>
+        <label for="aud">Sending to</label>
+        <select id="aud">
+          <option value="class">My class WhatsApp group</option>
+          <option value="club">A club / placement group</option>
+          <option value="friend">One close friend</option>
+        </select>
+      </div>
+      <div>
+        <label for="lang">Language</label>
+        <select id="lang">
+          <option>English</option><option>Telugu</option><option>Tamil</option>
+          <option>Hindi</option><option>Kannada</option><option>Malayalam</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn ghost block" type="button" id="gen">Write my message</button>
+    <label for="msg">Message</label>
+    <textarea id="msg" rows="7">{{ msg }}</textarea>
+    <div class="actions">
+      <button class="btn ghost" type="button" onclick="copyText('msg')">Copy message</button>
+      <a class="btn wa" id="wa2" href="{{ wa_url }}" target="_blank" rel="noopener">Send on WhatsApp</a>
+    </div>
+    {% if not ai_enabled %}<p class="hint">Regional-language messages need the AI key; English templates work without it.</p>{% endif %}
+  </div>
+
+  <div class="sheet">
+    <h2>{{ count }} friend{{ '' if count == 1 else 's' }} joined through you</h2>
+    {% if need %}
+      <div class="progress-line"><span style="width: {{ (100 * count / need)|round }}%"></span></div>
+      <p class="hint">{{ need - count }} more to unlock: {{ reward }}</p>
+    {% else %}
+      <p class="hint">Every reward unlocked. You're competing for the top-3 prizes now.</p>
+    {% endif %}
+    {% if rank %}<p><strong>Rank #{{ rank }}</strong> on the <a href="/leaderboard">leaderboard</a>.</p>{% endif %}
+
+    <ul class="ladder">
+      {% for n, r in tiers %}
+      <li class="{{ 'done' if count >= n }}"><span class="need">{{ n }}</span><span>{{ r }}</span></li>
+      {% endfor %}
+      <li><span class="need">Top 3</span><span>{{ prizes|join(', ') }}</span></li>
+    </ul>
+
+    <p style="margin-top:20px">{{ college_total }} student{{ '' if college_total == 1 else 's' }} from {{ me['college'] }} registered so far.</p>
+
+    {% if friends %}
+    <h3 style="margin-top:20px">Joined with your link</h3>
+    <ul class="ladder">
+      {% for f in friends %}<li><span>{{ f['name'] }}</span><span class="hint">{{ f['college'] }}</span></li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function copyText(id){const el=document.getElementById(id);el.select();navigator.clipboard.writeText(el.value).then(()=>toast('Copied'));}
+const msg=document.getElementById('msg'), wa2=document.getElementById('wa2');
+msg.addEventListener('input',()=>{wa2.href='https://wa.me/?text='+encodeURIComponent(msg.value);});
+document.getElementById('gen').addEventListener('click',async(e)=>{
+  const b=e.target; b.disabled=true; b.textContent='Writing…';
+  try{
+    const r=await fetch('/api/pitch/{{ me["ref_code"] }}',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({audience:document.getElementById('aud').value,language:document.getElementById('lang').value})});
+    const d=await r.json(); msg.value=d.message; wa2.href='https://wa.me/?text='+encodeURIComponent(d.message);
+    toast(d.ai?'Message written':'Template message ready');
+  }catch(err){toast('Could not write a message. Edit the one above.');}
+  b.disabled=false; b.textContent='Write my message';
+});
+</script>
+{% endblock %}
