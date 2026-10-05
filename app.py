@@ -234,17 +234,14 @@ def log_visit(source, ref_code, path):
 
 
 # ---------- public pages ----------
-@app.route("/")
-def index():
-    ref = (request.args.get("ref") or "").upper().strip()
-    source = (request.args.get("utm_source") or ("referral" if ref else "")).lower()
+def render_landing(ref, source):
     db = get_db()
     referrer = None
     if ref:
         referrer = db.execute("SELECT name, college FROM registrants WHERE ref_code=?", (ref,)).fetchone()
         if not referrer:
             ref = ""
-    log_visit(source or "direct", ref or None, "/")
+    log_visit(source or "direct", ref or None, request.path)
     total = db.execute("SELECT COUNT(*) FROM registrants").fetchone()[0]
     colleges = db.execute("SELECT COUNT(DISTINCT college) FROM registrants").fetchone()[0]
     return render_template("index.html", ref=ref, referrer=referrer, source=source,
@@ -253,9 +250,17 @@ def index():
                            errors={}, form={})
 
 
+@app.route("/")
+def index():
+    ref = (request.args.get("ref") or "").upper().strip()
+    source = (request.args.get("utm_source") or ("referral" if ref else "")).lower()
+    return render_landing(ref, source)
+
+
 @app.route("/r/<code>")
 def short_link(code):
-    return redirect(url_for("index", ref=code.upper(), utm_source="referral"))
+    # Served directly (no redirect) so WhatsApp / LinkedIn preview bots see the title and image.
+    return render_landing(code.upper().strip(), "referral")
 
 
 @app.route("/register", methods=["POST"])
@@ -332,7 +337,7 @@ def you(code):
         SELECT COUNT(*)+1 FROM (SELECT referred_by, COUNT(*) c FROM registrants
         WHERE referred_by IS NOT NULL GROUP BY referred_by) WHERE c > ?""", (count,)).fetchone()
     link = f"{base_url()}/r/{me['ref_code']}"
-    msg = share_message(me["name"].split()[0], link, me["college"])
+    msg = share_message(me["name"], link, me["college"])
     college_total = db.execute("SELECT COUNT(*) FROM registrants WHERE college=?",
                                (me["college"],)).fetchone()[0]
     friends = db.execute("SELECT name, college, created_at FROM registrants WHERE referred_by=? "
@@ -374,7 +379,7 @@ def ai_pitch(code):
     audience = (request.json or {}).get("audience", "class")
     lang = (request.json or {}).get("language", "English")
     link = f"{base_url()}/r/{me['ref_code']}"
-    first = me["name"].split()[0]
+    first = me["name"]  # full name: South Indian names often start with the surname
 
     templates = {
         "class": share_message(first, link, me["college"]),
